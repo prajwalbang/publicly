@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Reveal from "@/components/reveal";
 import { Field, PillGroup, inputClass } from "@/components/form";
+import { supabase } from "@/lib/supabase";
 
 const STAGES = ["Idea", "MVP", "Launched", "Funded"];
 const BUILDER_TYPES = [
@@ -13,9 +14,44 @@ const BUILDER_TYPES = [
   "Engineering",
 ];
 
+type Status = "idle" | "submitting" | "success" | "error";
+
 export default function StartupWaitlist() {
   const [stage, setStage] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
+  const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string>("");
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStatus("submitting");
+    setErrorMsg("");
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    const { error } = await supabase.from("startup_waitlist").insert({
+      startup_name: String(data.get("startup_name") || ""),
+      website: String(data.get("website") || ""),
+      building: String(data.get("building") || ""),
+      stage: stage[0] || null,
+      momentum: String(data.get("momentum") || ""),
+      builder_types: types,
+      budget: String(data.get("budget") || ""),
+      founder_email: String(data.get("founder_email") || ""),
+    });
+
+    if (error) {
+      setStatus("error");
+      setErrorMsg(error.message);
+      return;
+    }
+
+    form.reset();
+    setStage([]);
+    setTypes([]);
+    setStatus("success");
+  }
 
   return (
     <section id="waitlist" className="border-t border-hairline py-22 md:py-32">
@@ -79,13 +115,15 @@ export default function StartupWaitlist() {
             <Reveal delay={80}>
               <form
                 className="space-y-8 rounded-[4px] border border-hairline p-6 md:p-8"
-                onSubmit={(e) => e.preventDefault()}
+                onSubmit={handleSubmit}
               >
                 <div className="grid gap-8 sm:grid-cols-2">
                   <Field label="Startup name" htmlFor="w-name">
                     <input
                       id="w-name"
+                      name="startup_name"
                       type="text"
+                      required
                       placeholder="Acme Systems"
                       className={inputClass}
                     />
@@ -93,6 +131,7 @@ export default function StartupWaitlist() {
                   <Field label="Website" htmlFor="w-site">
                     <input
                       id="w-site"
+                      name="website"
                       type="url"
                       placeholder="acme.dev"
                       className={inputClass}
@@ -102,6 +141,7 @@ export default function StartupWaitlist() {
                 <Field label="What are you building?" htmlFor="w-building">
                   <textarea
                     id="w-building"
+                    name="building"
                     rows={3}
                     placeholder="One or two sentences on the product and who it is for."
                     className={inputClass}
@@ -144,6 +184,7 @@ export default function StartupWaitlist() {
                   <Field label="Budget range" htmlFor="w-budget">
                     <input
                       id="w-budget"
+                      name="budget"
                       type="text"
                       placeholder="$1,500 to $3,000 / month"
                       className={inputClass}
@@ -152,18 +193,35 @@ export default function StartupWaitlist() {
                   <Field label="Founder email" htmlFor="w-email">
                     <input
                       id="w-email"
+                      name="founder_email"
                       type="email"
+                      required
                       placeholder="you@acme.dev"
                       className={inputClass}
                     />
                   </Field>
                 </div>
-                <button
-                  type="submit"
-                  className="rounded-[4px] bg-accent px-5 py-3 font-mono text-xs font-medium uppercase tracking-[0.15em] text-canvas transition-opacity duration-[120ms] ease-signature hover:opacity-85"
-                >
-                  Join Startup Waitlist
-                </button>
+                <div className="flex flex-wrap items-center gap-4">
+                  <button
+                    type="submit"
+                    disabled={status === "submitting"}
+                    className="rounded-[4px] bg-accent px-5 py-3 font-mono text-xs font-medium uppercase tracking-[0.15em] text-canvas transition-opacity duration-[120ms] ease-signature hover:opacity-85 disabled:opacity-50"
+                  >
+                    {status === "submitting"
+                      ? "Joining…"
+                      : "Join Startup Waitlist"}
+                  </button>
+                  {status === "success" && (
+                    <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-accent">
+                      You are on the list. We will be in touch.
+                    </p>
+                  )}
+                  {status === "error" && (
+                    <p className="font-mono text-[11px] text-red-500">
+                      {errorMsg || "Something went wrong. Please try again."}
+                    </p>
+                  )}
+                </div>
               </form>
             </Reveal>
           </div>
